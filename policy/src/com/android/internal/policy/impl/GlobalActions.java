@@ -56,8 +56,6 @@ import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.android.internal.app.ThemeUtils;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -86,7 +84,6 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
     private final Context mContext;
     private final WindowManagerFuncs mWindowManagerFuncs;
 
-    private Context mUiContext;
     private final AudioManager mAudioManager;
 
     private ArrayList<Action> mItems;
@@ -106,7 +103,6 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
     private IWindowManager mIWindowManager;
 
-    private static final String POWER_MENU_SCREENSHOT_ENABLED = "power_menu_screenshot_enabled";
 
     /**
      * @param context everything needs a context :(
@@ -122,8 +118,6 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         filter.addAction(Intent.ACTION_SCREEN_OFF);
         filter.addAction(TelephonyIntents.ACTION_EMERGENCY_CALLBACK_MODE_CHANGED);
         context.registerReceiver(mBroadcastReceiver, filter);
-
-        ThemeUtils.registerThemeChangeReceiver(context, mThemeChangeReceiver);
 
         // get notified of phone state changes
         TelephonyManager telephonyManager =
@@ -147,9 +141,6 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         mKeyguardShowing = keyguardShowing;
         mDeviceProvisioned = isDeviceProvisioned;
         if (mDialog != null) {
-            if (mUiContext != null) {
-                mUiContext = null;
-            }
             mDialog.dismiss();
             mDialog = null;
             // Show delayed, so that the dismiss of the previous dialog completes
@@ -165,13 +156,6 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
         mDialog.show();
         mDialog.getWindow().getDecorView().setSystemUiVisibility(View.STATUS_BAR_DISABLE_EXPAND);
-    }
-
-    private Context getUiContext() {
-        if (mUiContext == null) {
-            mUiContext = ThemeUtils.createUiContext(mContext);
-        }
-        return mUiContext != null ? mUiContext : mContext;
     }
 
     /**
@@ -251,54 +235,51 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
             });
 
         // next: reboot
-        // only shown if enabled, enabled by default
-        if (Settings.System.getInt(mContext.getContentResolver(),
-                Settings.System.POWER_MENU_REBOOT_ENABLED, 1) == 1) {
-            mItems.add(
-                new SinglePressAction(R.drawable.ic_lock_reboot, R.string.global_action_reboot) {
-                    public void onPress() {
-                        mWindowManagerFuncs.reboot();
-                    }
+        mItems.add(
+            new SinglePressAction(R.drawable.ic_lock_reboot, R.string.global_action_reboot) {
+                public void onPress() {
+                    mWindowManagerFuncs.reboot();
+                }
 
-                    public boolean onLongPress() {
-                        mWindowManagerFuncs.rebootSafeMode();
-                        return true;
-                    }
+                public boolean onLongPress() {
+                    mWindowManagerFuncs.rebootSafeMode();
+                    return true;
+                }
 
-                    public boolean showDuringKeyguard() {
-                        return true;
-                    }
+                public boolean showDuringKeyguard() {
+                    return true;
+                }
 
-                    public boolean showBeforeProvisioning() {
-                        return true;
-                    }
-                });
-        }
+                public boolean showBeforeProvisioning() {
+                    return true;
+                }
+            });
+
 
         // next: screenshot
-        // only shown if enabled, disabled by default
-        if (Settings.System.getInt(mContext.getContentResolver(),
-                POWER_MENU_SCREENSHOT_ENABLED, 0) == 1) {
-            mItems.add(
-                new SinglePressAction(R.drawable.ic_lock_screenshot, R.string.global_action_screenshot) {
-                    public void onPress() {
-                        takeScreenshot();
-                    }
+        mItems.add(
+            new SinglePressAction(R.drawable.ic_lock_screenshot, R.string.global_action_screenshot) {
+                public void onPress() {
+                    takeScreenshot();
+                }
 
-                    public boolean showDuringKeyguard() {
-                        return true;
-                    }
+                public boolean showDuringKeyguard() {
+                    return true;
+                }
 
-                    public boolean showBeforeProvisioning() {
-                        return true;
-                    }
-                });
-        }
+                public boolean showBeforeProvisioning() {
+                    return true;
+                }
+            });
 
         // next: airplane mode
         mItems.add(mAirplaneModeOn);
 
-        // next: users
+        // last: silent mode
+        if (SHOW_SILENT_TOGGLE) {
+            mItems.add(mSilentModeAction);
+        }
+
         List<UserInfo> users = mContext.getPackageManager().getUsers();
         if (users.size() > 1) {
             UserInfo currentUser;
@@ -335,14 +316,9 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
             }
         }
 
-        // last: silent mode
-        if (SHOW_SILENT_TOGGLE) {
-            mItems.add(mSilentModeAction);
-        }
-
         mAdapter = new MyAdapter();
 
-        final AlertDialog.Builder ab = new AlertDialog.Builder(getUiContext());
+        final AlertDialog.Builder ab = new AlertDialog.Builder(mContext);
 
         ab.setAdapter(mAdapter, this)
                 .setInverseBackgroundForced(true);
@@ -555,8 +531,7 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
 
         public View getView(int position, View convertView, ViewGroup parent) {
             Action action = getItem(position);
-            final Context context = getUiContext();
-            return action.create(context, convertView, parent, LayoutInflater.from(context));
+            return action.create(mContext, convertView, parent, LayoutInflater.from(mContext));
         }
     }
 
@@ -595,37 +570,46 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
      * A single press action maintains no state, just responds to a press
      * and takes an action.
      */
-    private abstract class ProfileChooseAction implements Action {
-        private ProfileManager mProfileManager;
+    private static abstract class SinglePressAction implements Action {
+        private final int mIconResId;
+        private final int mMessageResId;
+        private final CharSequence mMessage;
 
-        protected ProfileChooseAction() {
-            mProfileManager = (ProfileManager)mContext.getSystemService(Context.PROFILE_SERVICE);
+        protected SinglePressAction(int iconResId, int messageResId) {
+            mIconResId = iconResId;
+            mMessageResId = messageResId;
+            mMessage = null;
         }
 
+        protected SinglePressAction(int iconResId, CharSequence message) {
+            mIconResId = iconResId;
+            mMessageResId = 0;
+            mMessage = message;
+        }
         public boolean isEnabled() {
             return true;
         }
 
         abstract public void onPress();
 
-        public View create(Context context, View convertView, ViewGroup parent, LayoutInflater inflater) {
+        public boolean onLongPress() {
+            return false;
+        }
+
+        public View create(
+                Context context, View convertView, ViewGroup parent, LayoutInflater inflater) {
             View v = inflater.inflate(R.layout.global_actions_item, parent, false);
 
             ImageView icon = (ImageView) v.findViewById(R.id.icon);
             TextView messageView = (TextView) v.findViewById(R.id.message);
-            TextView statusView = (TextView) v.findViewById(R.id.status);
 
-            if (statusView != null) {
-                statusView.setVisibility(View.VISIBLE);
-                statusView.setText(mProfileManager.getActiveProfile().getName());
-            }
+            v.findViewById(R.id.status).setVisibility(View.GONE);
 
-            if (icon != null) {
-                icon.setImageDrawable(context.getResources().getDrawable(R.drawable.ic_lock_profile));
-            }
-
-            if (messageView != null) {
-                messageView.setText(R.string.global_action_choose_profile);
+            icon.setImageDrawable(context.getResources().getDrawable(mIconResId));
+            if (mMessage != null) {
+                messageView.setText(mMessage);
+            } else {
+                messageView.setText(mMessageResId);
             }
 
             return v;
@@ -875,12 +859,6 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
                     changeAirplaneModeSystemSetting(true);
                 }
             }
-        }
-    };
-
-    private BroadcastReceiver mThemeChangeReceiver = new BroadcastReceiver() {
-        public void onReceive(Context context, Intent intent) {
-            mUiContext = null;
         }
     };
 

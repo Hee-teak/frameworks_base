@@ -450,7 +450,6 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         final AlertDialog.Builder ab = new AlertDialog.Builder(getUiContext());
 
         AlertDialog dialog = ab
-                .setTitle(R.string.global_action_choose_profile)
                 .setSingleChoiceItems(names, checkedItem, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
                         if (which < 0)
@@ -565,8 +564,6 @@ class GlobalActions implements DialogInterface.OnDismissListener, DialogInterfac
         } else {
             mDialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_DIALOG);
         }
-
-        mDialog.setTitle(R.string.global_actions);
 
         if (SHOW_SILENT_TOGGLE) {
             IntentFilter filter = new IntentFilter(AudioManager.RINGER_MODE_CHANGED_ACTION);

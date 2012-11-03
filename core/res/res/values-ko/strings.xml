@@ -1412,5 +1412,10 @@
 
     <!-- Name of wildcard profile. -->
     <string name="wildcardProfile">기타</string>
+    
+    <!-- Default text for a button that can be toggled on and off. -->
+    <string name="capital_on">켜짐</string>
+    <!-- Default text for a button that can be toggled on and off. -->
+    <string name="capital_off">꺼짐</string>
 
 </resources>

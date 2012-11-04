@@ -62,8 +62,7 @@ public class CircleBattery extends ImageView {
     private int     mLevel;         // current battery level
     private int     mAnimOffset;    // current level of charging animation
     private boolean mIsAnimating;   // stores charge-animation status to reliably remove callbacks
-    private int     mAnimOffset;
-    private boolean mIsAnimating;   
+    
     private int     mCircleSize;    // draw size of circle. read rather complicated from
                                     // another status bar icon, so it fits the icon size
                                     // no matter the dps and resolution

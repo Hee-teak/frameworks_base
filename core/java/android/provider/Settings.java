@@ -2863,6 +2863,24 @@ public final class Settings {
  	      * @hide
  	      */
          public static final String NAVIGATION_BAR_BUTTON_ALPHA = "navigation_bar_button_alpha";
+         
+         /**
+          * Navigation bar height in portrait
+          * @hide
+          */
+         public static final String NAVIGATION_BAR_HEIGHT = "navigation_bar_height";
+
+         /**
+          * Navigation bar height in landscape
+          * @hide
+          */
+         public static final String NAVIGATION_BAR_HEIGHT_LANDSCAPE = "navigation_bar_height_landscape";
+
+         /**
+          * Navigation bar height in landscape if the bar is along the side of the device
+          * @hide
+          */
+         public static final String NAVIGATION_BAR_WIDTH = "navigation_bar_width";
 
         /**
          * Show the pending notification counts as overlays on the status bar
